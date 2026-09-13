@@ -75,6 +75,7 @@ public:
     {
         setBrush(QColor("#f8fafc"));
         setPen(QPen(QColor("#2563eb"), 2));
+        setFlag(QGraphicsItem::ItemIsMovable);
         setCursor(Qt::OpenHandCursor);
     }
 
@@ -89,7 +90,6 @@ protected:
     {
         if (event->buttons() & Qt::LeftButton)
             owner->movePoint(index, event->scenePos());
-        QGraphicsEllipseItem::mouseMoveEvent(event);
     }
 
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override

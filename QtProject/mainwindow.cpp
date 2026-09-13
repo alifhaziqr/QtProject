@@ -80,6 +80,13 @@ protected:
         QGraphicsEllipseItem::mousePressEvent(event);
     }
 
+    void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override
+    {
+        if (event->buttons() & Qt::LeftButton)
+            owner->movePoint(index, event->scenePos());
+        QGraphicsEllipseItem::mouseMoveEvent(event);
+    }
+
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override
     {
         setCursor(Qt::OpenHandCursor);
@@ -198,8 +205,6 @@ MainWindow::MainWindow(QWidget *parent)
     setCentralWidget(splitter);
     updateProperties();
 }
-
-MainWindow::~MainWindow() = default;
 
 void MainWindow::updateProperties()
 {

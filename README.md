@@ -13,7 +13,7 @@ A Qt Widgets application that displays a five-sided polygon with labeled points 
 From the repository directory:
 
 ```sh
-cmake -S QtProject -B build
+cmake -S . -B build
 cmake --build build
 ```
 

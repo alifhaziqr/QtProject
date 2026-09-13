@@ -1,27 +1,46 @@
-# Polygon Canvas
+# Polygon Editor
 
-A Qt Widgets application that displays a five-sided polygon with labeled points in a graphics view. The properties panel stays synchronized with the canvas.
+A Qt Widgets application that displays a five-sided polygon with labeled points
+in a graphics view. The properties panel stays synchronized with the canvas.
 
 ## Requirements
 
-- Qt 6 (Widgets module)
-- CMake 3.16 or newer
+- Qt 6 with the Widgets module and CMake package
+- CMake 3.27 or newer
 - A C++17 compiler
+- Ninja when using the command-line preset
 
-## Build and run
+## Build with Qt Creator
 
-From the repository directory:
+1. Install Qt with the **Qt Widgets** component and a compatible desktop kit.
+2. Start Qt Creator and select **File > Open File or Project**.
+3. Select the project's `CMakeLists.txt` file.
+4. In the **Configure Project** dialog, select the desktop kit that matches your
+	Qt installation and compiler, then select **Configure Project**.
+5. Select the `QtProject` target in the project pane.
+6. Select the **Build** button, or choose **Build > Build Project
+	"QtProject"**.
+7. Select the green **Run** button to launch the application.
 
-```sh
-cmake -S . -B build
-cmake --build build
+Qt Creator configures the CMake build directory and supplies the Qt package,
+compiler, and generator through the selected kit.
+
+## Build from the command line
+
+1. Set the variables to the Qt locations on your computer if Qt is not installed in the default directory. 
+2. Use these commands to a terminal, change the examples below according to your directory:
+
+```
+$env:QT_ROOT = "C:/Qt/6.*.*/mingw_64" 
+$env:MINGW_ROOT = "C:/Qt/Tools/mingw1310_64"
+$env:NINJA_ROOT = "C:/Qt/Tools/Ninja"
+$env:PATH = "$env:QT_ROOT\bin;$env:PATH"
 ```
 
-Run the resulting executable from `build/` (on Windows it is normally `build/QtProject.exe`, depending on the selected generator).
+2. From the repository directory, run:
 
-## Using the application
-
-- Drag inside the polygon to move it.
-- Drag any circular point handle to adjust that vertex.
-- Edit any point label on the canvas or in its properties field.
-- Use the properties panel to edit the fill color or any point coordinate. The area is calculated automatically.
+```
+cmake --preset default
+cmake --build out/build/default
+.\out\build\default\QtProject.exe
+```

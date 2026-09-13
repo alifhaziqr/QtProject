@@ -6,6 +6,7 @@
 build/
 build-*/
 *.json
+!CMakePresets.json
 
 # Compiled binary files and object files
 *.o

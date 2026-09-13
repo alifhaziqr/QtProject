@@ -3,11 +3,14 @@
 
 #include <QMainWindow>
 
-QT_BEGIN_NAMESPACE
-namespace Ui {
-class MainWindow;
-}
-QT_END_NAMESPACE
+class CanvasPolygon;
+class QGraphicsScene;
+class QGraphicsView;
+class QGraphicsTextItem;
+class QLineEdit;
+class QPushButton;
+class QLabel;
+class QDoubleSpinBox;
 
 class MainWindow : public QMainWindow
 {
@@ -18,6 +21,17 @@ public:
     ~MainWindow() override;
 
 private:
-    Ui::MainWindow *ui;
+    void updateProperties();
+    void updatePoint(int index, double x, double y);
+    void chooseFillColor();
+
+    QGraphicsScene *scene = nullptr;
+    QGraphicsView *view = nullptr;
+    CanvasPolygon *polygon = nullptr;
+    QGraphicsTextItem *label = nullptr;
+    QPushButton *fillButton = nullptr;
+    QLabel *areaLabel = nullptr;
+    QLineEdit *textEdit = nullptr;
+    QDoubleSpinBox *pointFields[5][2]{};
 };
 #endif // MAINWINDOW_H

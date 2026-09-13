@@ -37,7 +37,12 @@ public:
 
     void setChangedCallback(std::function<void()> callback) { changed = std::move(callback); }
     void addHandle(PolygonHandle *handle) { handles.append(handle); }
+    void addPointLabel(int index);
     void movePoint(int index, const QPointF &scenePosition);
+    QString pointLabelText(int index) const;
+    void setPointLabelText(int index, const QString &text);
+    QColor pointLabelColor(int index) const;
+    void setPointLabelColor(int index, const QColor &color);
     QColor fillColor() const { return brush().color(); }
 
     void setFillColor(const QColor &color)
@@ -58,6 +63,7 @@ protected:
 
 private:
     QList<PolygonHandle *> handles;
+    QList<QGraphicsTextItem *> pointLabels;
     std::function<void()> changed;
 };
 
@@ -69,7 +75,6 @@ public:
     {
         setBrush(QColor("#f8fafc"));
         setPen(QPen(QColor("#2563eb"), 2));
-        setFlag(QGraphicsItem::ItemIsMovable);
         setCursor(Qt::OpenHandCursor);
     }
 
@@ -108,33 +113,53 @@ void CanvasPolygon::movePoint(int index, const QPointF &scenePosition)
     points[index] = localPosition;
     setPolygon(points);
     handles[index]->setPos(localPosition);
+    if (index < pointLabels.size())
+        pointLabels[index]->setPos(localPosition + QPointF(9, -22));
     if (changed)
         changed();
 }
 
-class EditableLabel : public QGraphicsTextItem
+void CanvasPolygon::addPointLabel(int index)
 {
-public:
-    explicit EditableLabel(const QString &text)
-        : QGraphicsTextItem(text)
-    {
-        setTextInteractionFlags(Qt::TextEditorInteraction);
-        setDefaultTextColor(QColor("#16324f"));
-        setFont(QFont("Segoe UI", 14, QFont::DemiBold));
-        setFlag(QGraphicsItem::ItemIsMovable);
-        setFlag(QGraphicsItem::ItemIsSelectable);
-    }
+    auto *pointLabel = new QGraphicsTextItem(QString("P%1").arg(index + 1), this);
+    pointLabel->setTextInteractionFlags(Qt::TextEditorInteraction);
+    pointLabel->setDefaultTextColor(QColor("#164e63"));
+    pointLabel->setFont(QFont("Segoe UI", 9, QFont::DemiBold));
+    pointLabel->setPos(polygon().at(index) + QPointF(9, -22));
+    QObject::connect(pointLabel->document(), &QTextDocument::contentsChanged,
+                     [this] { if (changed) changed(); });
+    pointLabels.append(pointLabel);
+}
 
-    void setChangedCallback(std::function<void()> callback)
-    {
-        changed = std::move(callback);
-        QObject::connect(document(), &QTextDocument::contentsChanged,
-                         [this] { if (changed) changed(); });
-    }
+QString CanvasPolygon::pointLabelText(int index) const
+{
+    if (index < 0 || index >= pointLabels.size())
+        return {};
+    return pointLabels.at(index)->toPlainText();
+}
 
-private:
-    std::function<void()> changed;
-};
+void CanvasPolygon::setPointLabelText(int index, const QString &text)
+{
+    if (index < 0 || index >= pointLabels.size() || pointLabelText(index) == text)
+        return;
+    pointLabels[index]->setPlainText(text);
+}
+
+QColor CanvasPolygon::pointLabelColor(int index) const
+{
+    if (index < 0 || index >= pointLabels.size())
+        return QColor("#164e63");
+    return pointLabels.at(index)->defaultTextColor();
+}
+
+void CanvasPolygon::setPointLabelColor(int index, const QColor &color)
+{
+    if (index < 0 || index >= pointLabels.size())
+        return;
+    pointLabels[index]->setDefaultTextColor(color);
+    if (changed)
+        changed();
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -157,13 +182,9 @@ MainWindow::MainWindow(QWidget *parent)
         auto *handle = new PolygonHandle(i, polygon);
         handle->setPos(points.at(i));
         polygon->addHandle(handle);
+        polygon->addPointLabel(i);
     }
     polygon->setChangedCallback([this] { updateProperties(); });
-
-    label = new EditableLabel("Editable label");
-    label->setPos(-65, 205);
-    scene->addItem(label);
-    static_cast<EditableLabel *>(label)->setChangedCallback([this] { updateProperties(); });
 
     auto *properties = new QGroupBox("Properties", this);
     auto *form = new QFormLayout(properties);
@@ -187,15 +208,18 @@ MainWindow::MainWindow(QWidget *parent)
                     [this, i] { updatePoint(i, pointFields[i][0]->value(), pointFields[i][1]->value()); });
             pointForm->addRow(axis == 0 ? "X" : "Y", field);
         }
+            auto *labelField = new QLineEdit(pointBox);
+            pointLabelFields[i] = labelField;
+            connect(labelField, &QLineEdit::textChanged, this,
+                [this, i](const QString &text) { polygon->setPointLabelText(i, text); });
+            pointForm->addRow("Label", labelField);
+            auto *labelColorButton = new QPushButton("Choose color", pointBox);
+            pointLabelColorButtons[i] = labelColorButton;
+            connect(labelColorButton, &QPushButton::clicked, this,
+                [this, i] { choosePointLabelColor(i); });
+            pointForm->addRow("Text color", labelColorButton);
         form->addRow(pointBox);
     }
-
-    textEdit = new QLineEdit(properties);
-    connect(textEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
-        if (label->toPlainText() != text)
-            label->setPlainText(text);
-    });
-    form->addRow("Label text", textEdit);
 
     auto *splitter = new QSplitter(Qt::Horizontal, this);
     splitter->addWidget(view);
@@ -215,6 +239,11 @@ void MainWindow::updateProperties()
         const QSignalBlocker yBlocker(pointFields[i][1]);
         pointFields[i][0]->setValue(scenePoint.x());
         pointFields[i][1]->setValue(scenePoint.y());
+        const QSignalBlocker labelBlocker(pointLabelFields[i]);
+        pointLabelFields[i]->setText(polygon->pointLabelText(i));
+        const QColor labelColor = polygon->pointLabelColor(i);
+        pointLabelColorButtons[i]->setStyleSheet(QString("background-color: %1; color: %2;").arg(labelColor.name(),
+            labelColor.lightness() < 140 ? "white" : "#16324f"));
     }
 
     double twiceArea = 0.0;
@@ -228,8 +257,7 @@ void MainWindow::updateProperties()
     const QColor color = polygon->fillColor();
     fillButton->setStyleSheet(QString("background-color: %1; color: %2;").arg(color.name(),
         color.lightness() < 140 ? "white" : "#16324f"));
-    const QSignalBlocker textBlocker(textEdit);
-    textEdit->setText(label->toPlainText());
+
 }
 
 void MainWindow::updatePoint(int index, double x, double y)
@@ -245,3 +273,11 @@ void MainWindow::chooseFillColor()
     if (color.isValid())
         polygon->setFillColor(color);
 }
+
+    void MainWindow::choosePointLabelColor(int index)
+    {
+        const QColor color = QColorDialog::getColor(polygon->pointLabelColor(index), this,
+                                                     QString("Point %1 text color").arg(index + 1));
+        if (color.isValid())
+            polygon->setPointLabelColor(index, color);
+    }

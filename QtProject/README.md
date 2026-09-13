@@ -1,6 +1,6 @@
 # Polygon Canvas
 
-A Qt Widgets application that displays an editable five-sided polygon and a text label in a graphics view. The properties panel stays synchronized with the canvas.
+A Qt Widgets application that displays a five-sided polygon with labeled points in a graphics view. The properties panel stays synchronized with the canvas.
 
 ## Requirements
 
@@ -23,5 +23,5 @@ Run the resulting executable from `build/` (on Windows it is normally `build/QtP
 
 - Drag inside the polygon to move it.
 - Drag any circular point handle to adjust that vertex.
-- Double-click the label on the canvas to edit it.
-- Use the properties panel to edit the fill color, label text, or any point coordinate. The area is calculated automatically.
+- Edit any point label on the canvas or in its properties field.
+- Use the properties panel to edit the fill color or any point coordinate. The area is calculated automatically.

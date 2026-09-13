@@ -6,7 +6,6 @@
 class CanvasPolygon;
 class QGraphicsScene;
 class QGraphicsView;
-class QGraphicsTextItem;
 class QLineEdit;
 class QPushButton;
 class QLabel;
@@ -23,14 +22,15 @@ private:
     void updateProperties();
     void updatePoint(int index, double x, double y);
     void chooseFillColor();
+    void choosePointLabelColor(int index);
 
     QGraphicsScene *scene = nullptr;
     QGraphicsView *view = nullptr;
     CanvasPolygon *polygon = nullptr;
-    QGraphicsTextItem *label = nullptr;
     QPushButton *fillButton = nullptr;
     QLabel *areaLabel = nullptr;
-    QLineEdit *textEdit = nullptr;
     QDoubleSpinBox *pointFields[5][2]{};
+    QLineEdit *pointLabelFields[5]{};
+    QPushButton *pointLabelColorButtons[5]{};
 };
 #endif // MAINWINDOW_H

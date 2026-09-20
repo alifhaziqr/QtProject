@@ -16,6 +16,10 @@ set(PROJECT_SOURCES
         main.cpp
         mainwindow.cpp
         mainwindow.h
+    canvaspolygon.cpp
+    canvaspolygon.h
+    polygonhandle.cpp
+    polygonhandle.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

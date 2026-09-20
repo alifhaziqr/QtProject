@@ -10,6 +10,8 @@ class QLineEdit;
 class QPushButton;
 class QLabel;
 class QDoubleSpinBox;
+class QGridLayout;
+class QGroupBox;
 
 class MainWindow : public QMainWindow
 {
@@ -19,6 +21,10 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
 
 private:
+    void setupWindow();
+    void setupCanvas();
+    void setupPropertiesPanel();
+    void createPointEditor(int index, QGroupBox *properties, QGridLayout *layout);
     void updateProperties();
     void updatePoint(int index, double x, double y);
     void chooseFillColor();

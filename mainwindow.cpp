@@ -1,11 +1,11 @@
 #include "mainwindow.h"
 
+#include "canvaspolygon.h"
+#include "polygonhandle.h"
+
 #include <QColorDialog>
 #include <QDoubleSpinBox>
-#include <QGraphicsEllipseItem>
 #include <QGraphicsScene>
-#include <QGraphicsSceneMouseEvent>
-#include <QGraphicsTextItem>
 #include <QGraphicsView>
 #include <QGroupBox>
 #include <QGridLayout>
@@ -15,168 +15,25 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QSplitter>
-#include <QTextDocument>
 
 #include <cmath>
-#include <functional>
-
-class PolygonHandle;
-
-class CanvasPolygon : public QGraphicsPolygonItem
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
 {
-public:
-    explicit CanvasPolygon(const QPolygonF &points): QGraphicsPolygonItem(points)
-    {
-        setBrush(QColor("#58b7a8"));
-        setPen(QPen(QColor("#000000"), 3));
-        setFlag(QGraphicsItem::ItemIsMovable);
-        setFlag(QGraphicsItem::ItemSendsGeometryChanges);
-        setCursor(Qt::OpenHandCursor);
-    }
-
-    void setChangedCallback(std::function<void()> callback) { changed = std::move(callback); }
-    void addHandle(PolygonHandle *handle) { handles.append(handle); }
-    void addPointLabel(int index);
-    void movePoint(int index, const QPointF &scenePosition);
-    QString pointLabelText(int index) const;
-    void setPointLabelText(int index, const QString &text);
-    QColor pointLabelColor(int index) const;
-    void setPointLabelColor(int index, const QColor &color);
-    QColor fillColor() const { return brush().color(); }
-
-    void setFillColor(const QColor &color)
-    {
-        setBrush(color);
-        if (changed)
-        {
-            changed();
-        }
-    }
-
-protected:
-    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override
-    {
-        const QVariant result = QGraphicsPolygonItem::itemChange(change, value);
-        if (change == QGraphicsItem::ItemPositionHasChanged && changed)
-        {
-            changed();
-        }
-        return result;
-    }
-
-private:
-    QList<PolygonHandle *> handles;
-    QList<QGraphicsTextItem *> pointLabels;
-    std::function<void()> changed;
-};
-
-class PolygonHandle : public QGraphicsEllipseItem
-{
-public:
-    PolygonHandle(int index, CanvasPolygon *owner): QGraphicsEllipseItem(-6, -6, 12, 12, owner), index(index), owner(owner)
-    {
-        setBrush(QColor("#f8fafc"));
-        setPen(QPen(QColor("#2563eb"), 2));
-        setFlag(QGraphicsItem::ItemIsMovable);
-        setCursor(Qt::OpenHandCursor);
-    }
-
-protected:
-    void mousePressEvent(QGraphicsSceneMouseEvent *event) override
-    {
-        setCursor(Qt::ClosedHandCursor);
-        QGraphicsEllipseItem::mousePressEvent(event);
-    }
-
-    void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override
-    {
-        if (event->buttons() & Qt::LeftButton)
-            owner->movePoint(index, event->scenePos());
-    }
-
-    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override
-    {
-        setCursor(Qt::OpenHandCursor);
-        owner->movePoint(index, event->scenePos());
-        QGraphicsEllipseItem::mouseReleaseEvent(event);
-    }
-
-private:
-    int index;
-    CanvasPolygon *owner;
-};
-
-void CanvasPolygon::movePoint(int index, const QPointF &scenePosition)
-{
-    if (index < 0 || index >= handles.size()) return;
-    
-    const QPointF localPosition = mapFromScene(scenePosition);
-    QPolygonF points = polygon();
-    points[index] = localPosition;
-    setPolygon(points);
-    handles[index]->setPos(localPosition);
-
-    if (index < pointLabels.size())
-    {
-        pointLabels[index]->setPos(localPosition + QPointF(9, -22));
-    }
-
-    if (changed)
-    {
-        changed();
-    }
+    setupWindow();
+    setupCanvas();
+    setupPropertiesPanel();
+    updateProperties();
 }
 
-void CanvasPolygon::addPointLabel(int index)
-{
-    auto *pointLabel = new QGraphicsTextItem(QString("P%1").arg(index + 1), this);
-    pointLabel->setTextInteractionFlags(Qt::TextEditorInteraction);
-    pointLabel->setDefaultTextColor(QColor("#164e63"));
-    pointLabel->setFont(QFont("Segoe UI", 9, QFont::DemiBold));
-    pointLabel->setPos(polygon().at(index) + QPointF(9, -22));
-    QObject::connect(pointLabel->document(), &QTextDocument::contentsChanged,[this] { if (changed) changed(); });
-    pointLabels.append(pointLabel);
-}
-
-QString CanvasPolygon::pointLabelText(int index) const
-{
-    if (index < 0 || index >= pointLabels.size())
-        return {};
-
-    return pointLabels.at(index)->toPlainText();
-}
-
-void CanvasPolygon::setPointLabelText(int index, const QString &text)
-{
-    if (index < 0 || index >= pointLabels.size() || pointLabelText(index) == text) return;
-
-    pointLabels[index]->setPlainText(text);
-}
-
-QColor CanvasPolygon::pointLabelColor(int index) const
-{
-    if (index < 0 || index >= pointLabels.size())
-        return QColor("#164e63");
-
-    return pointLabels.at(index)->defaultTextColor();
-}
-
-void CanvasPolygon::setPointLabelColor(int index, const QColor &color)
-{
-    if (index < 0 || index >= pointLabels.size()) return;
-        
-    pointLabels[index]->setDefaultTextColor(color);
-    if (changed) 
-    {   
-        changed();
-    }
-}
-
-MainWindow::MainWindow(QWidget *parent): QMainWindow(parent)
+void MainWindow::setupWindow()
 {
     setWindowTitle("Polygon Editor");
     resize(1050, 680);
+}
 
+void MainWindow::setupCanvas()
+{
     scene = new QGraphicsScene(this);
     scene->setSceneRect(-360, -260, 720, 520);
     view = new QGraphicsView(scene, this);
@@ -196,8 +53,12 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent)
         polygon->addPointLabel(i);
     }
 
-    polygon->setChangedCallback([this] { updateProperties(); });
+    connect(polygon, &CanvasPolygon::polygonChanged,
+            this, &MainWindow::updateProperties);
+}
 
+void MainWindow::setupPropertiesPanel()
+{
     auto *properties = new QGroupBox("Properties", this);
     auto *propertiesLayout = new QGridLayout(properties);
     fillButton = new QPushButton("Choose color", properties);
@@ -209,34 +70,8 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent)
     propertiesLayout->addWidget(new QLabel("Area", properties), 1, 0);
     propertiesLayout->addWidget(areaLabel, 1, 1);
 
-    for (int i = 0; i < 5; ++i) {
-        auto *pointBox = new QGroupBox(QString("Point %1").arg(i + 1), properties);
-        auto *pointLayout = new QGridLayout(pointBox);
-
-        for (int axis = 0; axis < 2; ++axis) {
-            auto *field = new QDoubleSpinBox(pointBox);
-            field->setRange(-1000.0, 1000.0);
-            field->setDecimals(1);
-            field->setSingleStep(1.0);
-            pointFields[i][axis] = field;
-            connect(field, &QDoubleSpinBox::valueChanged, this,[this, i] { updatePoint(i, pointFields[i][0]->value(), pointFields[i][1]->value()); });
-            pointLayout->addWidget(new QLabel(axis == 0 ? "X" : "Y", pointBox), axis, 0);
-            pointLayout->addWidget(field, axis, 1);
-        }
-
-        auto *labelField = new QLineEdit(pointBox);
-        pointLabelFields[i] = labelField;
-        connect(labelField, &QLineEdit::textChanged, this,[this, i](const QString &text) { polygon->setPointLabelText(i, text); });
-        pointLayout->addWidget(new QLabel("Label", pointBox), 2, 0);
-        pointLayout->addWidget(labelField, 2, 1);
-
-        auto *labelColorButton = new QPushButton("Choose color", pointBox);
-        pointLabelColorButtons[i] = labelColorButton;
-        connect(labelColorButton, &QPushButton::clicked, this,[this, i] { choosePointLabelColor(i); });
-        pointLayout->addWidget(new QLabel("Text color", pointBox), 3, 0);
-        pointLayout->addWidget(labelColorButton, 3, 1);
-        propertiesLayout->addWidget(pointBox, i + 2, 0, 1, 2);
-    }
+    for (int i = 0; i < 5; ++i)
+        createPointEditor(i, properties, propertiesLayout);
 
     auto *splitter = new QSplitter(Qt::Horizontal, this);
     splitter->addWidget(view);
@@ -244,7 +79,44 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent)
     splitter->setStretchFactor(0, 1);
     splitter->setSizes({760, 290});
     setCentralWidget(splitter);
-    updateProperties();
+}
+
+void MainWindow::createPointEditor(int index, QGroupBox *properties, QGridLayout *layout)
+{
+    auto *pointBox = new QGroupBox(QString("Point %1").arg(index + 1), properties);
+    auto *pointLayout = new QGridLayout(pointBox);
+
+    for (int axis = 0; axis < 2; ++axis) {
+        auto *field = new QDoubleSpinBox(pointBox);
+        field->setRange(-1000.0, 1000.0);
+        field->setDecimals(1);
+        field->setSingleStep(1.0);
+        pointFields[index][axis] = field;
+        connect(field, &QDoubleSpinBox::valueChanged, this,
+                [this, index] {
+                    updatePoint(index, pointFields[index][0]->value(),
+                                pointFields[index][1]->value());
+                });
+        pointLayout->addWidget(new QLabel(axis == 0 ? "X" : "Y", pointBox), axis, 0);
+        pointLayout->addWidget(field, axis, 1);
+    }
+
+    auto *labelField = new QLineEdit(pointBox);
+    pointLabelFields[index] = labelField;
+    connect(labelField, &QLineEdit::textChanged, this,
+            [this, index](const QString &text) {
+                polygon->setPointLabelText(index, text);
+            });
+    pointLayout->addWidget(new QLabel("Label", pointBox), 2, 0);
+    pointLayout->addWidget(labelField, 2, 1);
+
+    auto *labelColorButton = new QPushButton("Choose color", pointBox);
+    pointLabelColorButtons[index] = labelColorButton;
+    connect(labelColorButton, &QPushButton::clicked, this,
+            [this, index] { choosePointLabelColor(index); });
+    pointLayout->addWidget(new QLabel("Text color", pointBox), 3, 0);
+    pointLayout->addWidget(labelColorButton, 3, 1);
+    layout->addWidget(pointBox, index + 2, 0, 1, 2);
 }
 
 void MainWindow::updateProperties()

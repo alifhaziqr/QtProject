@@ -17,6 +17,31 @@
 #include <QSplitter>
 
 #include <cmath>
+
+namespace
+{
+double polygonArea(const QPolygonF &points)
+{
+    double twiceArea = 0.0;
+    for (int i = 0; i < points.size(); ++i) {
+        const QPointF &current = points.at(i);
+        const QPointF &next = points.at((i + 1) % points.size());
+        twiceArea += current.x() * next.y() - next.x() * current.y();
+    }
+
+    return std::abs(twiceArea) / 2.0;
+}
+
+void setColorButtonStyle(QPushButton *button, const QColor &color)
+{
+    const QString textColor = color.lightness() < 140
+        ? QStringLiteral("white")
+        : QStringLiteral("#16324f");
+    button->setStyleSheet(QStringLiteral("background-color: %1; color: %2;")
+                              .arg(color.name(), textColor));
+}
+}
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
@@ -70,7 +95,7 @@ void MainWindow::setupPropertiesPanel()
     propertiesLayout->addWidget(new QLabel("Area", properties), 1, 0);
     propertiesLayout->addWidget(areaLabel, 1, 1);
 
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < PointCount; ++i)
         createPointEditor(i, properties, propertiesLayout);
 
     auto *splitter = new QSplitter(Qt::Horizontal, this);
@@ -105,7 +130,7 @@ void MainWindow::createPointEditor(int index, QGroupBox *properties, QGridLayout
     pointLabelFields[index] = labelField;
     connect(labelField, &QLineEdit::textChanged, this,
             [this, index](const QString &text) {
-                polygon->setPointLabelText(index, text);
+                updatePointLabel(index, text);
             });
     pointLayout->addWidget(new QLabel("Label", pointBox), 2, 0);
     pointLayout->addWidget(labelField, 2, 1);
@@ -122,7 +147,7 @@ void MainWindow::createPointEditor(int index, QGroupBox *properties, QGridLayout
 void MainWindow::updateProperties()
 {
     const QPolygonF points = polygon->polygon();
-    for (int i = 0; i < points.size() && i < 5; ++i) {
+    for (int i = 0; i < points.size() && i < PointCount; ++i) {
         const QPointF scenePoint = polygon->mapToScene(points.at(i));
         const QSignalBlocker xBlocker(pointFields[i][0]);
         const QSignalBlocker yBlocker(pointFields[i][1]);
@@ -131,21 +156,13 @@ void MainWindow::updateProperties()
         const QSignalBlocker labelBlocker(pointLabelFields[i]);
         pointLabelFields[i]->setText(polygon->pointLabelText(i));
         const QColor labelColor = polygon->pointLabelColor(i);
-        pointLabelColorButtons[i]->setStyleSheet(QString("background-color: %1; color: %2;").arg(labelColor.name(),labelColor.lightness() < 140 ? "white" : "#16324f"));
+        setColorButtonStyle(pointLabelColorButtons[i], labelColor);
     }
 
-    double twiceArea = 0.0;
-    for (int i = 0; i < points.size(); ++i) {
-        const QPointF &current = points.at(i);
-        const QPointF &next = points.at((i + 1) % points.size());
-        twiceArea += current.x() * next.y() - next.x() * current.y();
-    }
-
-    areaLabel->setText(QString::number(std::abs(twiceArea) / 2.0, 'f', 1) + " px2");
+    areaLabel->setText(QString::number(polygonArea(points), 'f', 1) + " px2");
 
     const QColor color = polygon->fillColor();
-    fillButton->setStyleSheet(QString("background-color: %1; color: %2;").arg(color.name(),
-        color.lightness() < 140 ? "white" : "#16324f"));
+    setColorButtonStyle(fillButton, color);
 
 }
 
@@ -154,6 +171,14 @@ void MainWindow::updatePoint(int index, double x, double y)
     if (!polygon || index < 0 || index >= polygon->polygon().size()) return;
 
     polygon->movePoint(index, QPointF(x, y));
+}
+
+void MainWindow::updatePointLabel(int index, const QString &text)
+{
+    if (!polygon || index < 0 || index >= polygon->polygon().size())
+        return;
+
+    polygon->setPointLabelText(index, text);
 }
 
 void MainWindow::chooseFillColor()
